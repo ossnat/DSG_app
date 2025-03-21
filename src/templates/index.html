@@ -1,0 +1,171 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Time Series Classifier</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .container { max-width: 800px; margin: 0 auto; }
+                .section { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+                h2 { color: #333; }
+                .results { margin-top: 20px; padding: 10px; background-color: #f8f8f8; }
+                .hidden { display: none; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>Time Series Classifier</h1>
+
+                <div class="section">
+                    <h2>Train Model</h2>
+                    <form id="trainForm" enctype="multipart/form-data">
+                        <div>
+                            <label for="trainFile">Upload Training CSV:</label>
+                            <input type="file" id="trainFile" name="file" accept=".csv">
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button type="button" onclick="trainModel()">Train Model</button>
+                        </div>
+                    </form>
+                    <div id="trainResults" class="results hidden"></div>
+                </div>
+
+                <div class="section">
+                    <h2>Make Predictions</h2>
+                    <form id="predictForm" enctype="multipart/form-data">
+                        <div>
+                            <label for="testFile">Upload Test CSV:</label>
+                            <input type="file" id="testFile" name="file" accept=".csv">
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button type="button" onclick="makePredictions()">Predict</button>
+                        </div>
+                    </form>
+                    <div id="predictResults" class="results hidden"></div>
+                </div>
+
+                <div class="section">
+                    <h2>Visualizations</h2>
+                    <button type="button" onclick="visualizeClusters()">View Cluster Prototypes</button>
+                    <div id="visualResults" class="results hidden">
+                        <img id="clusterImage" style="max-width: 100%;">
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                function trainModel() {
+                    const form = document.getElementById('trainForm');
+                    const formData = new FormData(form);
+                    const resultsDiv = document.getElementById('trainResults');
+
+                    resultsDiv.innerHTML = 'Training in progress...';
+                    resultsDiv.classList.remove('hidden');
+
+                    fetch('/train', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            resultsDiv.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+                        } else {
+                            resultsDiv.innerHTML = `
+                                <p>Model trained successfully!</p>
+                                <p>Training Accuracy: ${(data.train_accuracy * 100).toFixed(2)}%</p>
+                                <p>Best K: ${data.best_k}</p>
+                                <p>Silhouette Score: ${data.silhouette_score.toFixed(4)}</p>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        resultsDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                    });
+                }
+
+                function makePredictions() {
+                    const form = document.getElementById('predictForm');
+                    const formData = new FormData(form);
+                    const resultsDiv = document.getElementById('predictResults');
+
+                    resultsDiv.innerHTML = 'Generating predictions...';
+                    resultsDiv.classList.remove('hidden');
+
+                    fetch('/predict', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            resultsDiv.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+                        } else {
+                            let resultsHtml = '<p>Predictions generated successfully!</p>';
+
+                            if (data.accuracy !== undefined) {
+                                resultsHtml += `<p>Test Accuracy: ${(data.accuracy * 100).toFixed(2)}%</p>`;
+                            }
+
+                            resultsHtml += '<p>Results saved to predictions.csv</p>';
+
+                            if (data.predictions && data.predictions.length > 0) {
+                                resultsHtml += '<p>First 5 predictions:</p><table border="1" style="border-collapse: collapse; width: 100%;">';
+
+                                // Create header row based on keys of first prediction
+                                const headers = Object.keys(data.predictions[0]);
+                                resultsHtml += '<tr>';
+                                headers.forEach(header => {
+                                    resultsHtml += `<th style="padding: 5px;">${header}</th>`;
+                                });
+                                resultsHtml += '</tr>';
+
+                                // Add data rows (first 5 only)
+                                const displayPredictions = data.predictions.slice(0, 5);
+                                displayPredictions.forEach(pred => {
+                                    resultsHtml += '<tr>';
+                                    headers.forEach(header => {
+                                        let value = pred[header];
+                                        if (typeof value === 'number') {
+                                            value = value.toFixed(4);
+                                        }
+                                        resultsHtml += `<td style="padding: 5px;">${value}</td>`;
+                                    });
+                                    resultsHtml += '</tr>';
+                                });
+
+                                resultsHtml += '</table>';
+                            }
+
+                            resultsDiv.innerHTML = resultsHtml;
+                        }
+                    })
+                    .catch(error => {
+                        resultsDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                    });
+                }
+
+                function visualizeClusters() {
+                    const resultsDiv = document.getElementById('visualResults');
+                    const clusterImage = document.getElementById('clusterImage');
+
+                    fetch('/visualize_clusters')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            resultsDiv.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+                            resultsDiv.classList.remove('hidden');
+                        } else {
+                            clusterImage.src = data.image_path + '?t=' + new Date().getTime();  // Add timestamp to prevent caching
+                            resultsDiv.classList.remove('hidden');
+                        }
+                    })
+                    .catch(error => {
+                        resultsDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                        resultsDiv.classList.remove('hidden');
+                    });
+                }
+            </script>
+        </body>
+        </html>
+        
