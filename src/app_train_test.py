@@ -477,7 +477,10 @@ def predict():
             }
 
         # Save predictions
-        result_df.to_csv(os.path.join(RESULTS_DIR, 'predictions.csv'), index=False)
+        from datetime import datetime
+        now_date = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        result_df.to_csv(os.path.join(RESULTS_DIR, f'predictions_{now_date}.csv'), index=False)
+
 
         return jsonify(response)
 
