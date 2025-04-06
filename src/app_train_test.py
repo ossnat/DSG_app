@@ -16,6 +16,7 @@ import random
 from collections import Counter
 import matplotlib
 import logging
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)  # Set the logging level
 
@@ -29,9 +30,10 @@ RESULTS_DIR = 'results'
 MODEL_DIR = os.path.join(RESULTS_DIR, 'models')
 JSON_DIR = os.path.join(RESULTS_DIR, 'json')
 PLOTS_DIR = os.path.join(RESULTS_DIR, 'plots')
+ARCHIVE_DIR = os.path.join(MODEL_DIR, 'archive')
 
 # Create necessary directories
-for directory in [RESULTS_DIR, MODEL_DIR, JSON_DIR, PLOTS_DIR]:
+for directory in [RESULTS_DIR, MODEL_DIR, JSON_DIR, PLOTS_DIR, ARCHIVE_DIR]:
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -369,7 +371,17 @@ def train():
         app.logger.info("--- train() X shape: {}".format(X.shape))
         model = train_classifier(X, y, 5, param_grid_lr)
 
-        # Save trained model
+        # Save trained model, if exist, first put in archive
+        if os.path.exists(MODEL_FILENAME):
+            # Get the base name of the .pkl file (without extension)
+            base_name = os.path.splitext(os.path.basename(MODEL_FILENAME))[0]
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            destination_path = os.path.join(ARCHIVE_DIR, f"{base_name}_{timestamp_str}.pkl")
+            try:
+                joblib.dump(joblib.load(MODEL_FILENAME), destination_path)
+            except Exception as e:
+                print(f"Error moving '{MODEL_FILENAME} to new destination': {e}")
+
         joblib.dump(model, MODEL_FILENAME)
         app.logger.info("--- train() model saved")
         # Generate predictions on training set
@@ -477,10 +489,8 @@ def predict():
             }
 
         # Save predictions
-        from datetime import datetime
-        now_date = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-        result_df.to_csv(os.path.join(RESULTS_DIR, f'predictions_{now_date}.csv'), index=False)
-
+        # now_date = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        result_df.to_csv(os.path.join(RESULTS_DIR, f'predictions.csv'), index=False)
         return jsonify(response)
 
     except Exception as e:
