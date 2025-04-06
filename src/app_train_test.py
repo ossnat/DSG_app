@@ -481,7 +481,6 @@ def predict():
         now_date = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
         result_df.to_csv(os.path.join(RESULTS_DIR, f'predictions_{now_date}.csv'), index=False)
 
-
         return jsonify(response)
 
     except Exception as e:
